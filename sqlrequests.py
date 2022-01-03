@@ -33,11 +33,9 @@ class PsqlRequests:
         self._cursor = self.__psql.cursor()
         self.IS_CONNECT = True
 
-    def sort_by(self, sort_by):
-        pass
-
     def select(self, from_to_take: str, what_to_take: Union[list, str] = None, fetch_one: bool = False,
-               join: list = None, select_exceptions: list = None) -> tuple:
+               join: list = None, select_exceptions: list = None,
+               order_by: str = None, distinct: bool = False, desc=False, where: list = None) -> tuple:
         if not self.IS_CONNECT:
             return (None, )
 
@@ -57,11 +55,36 @@ class PsqlRequests:
                     text = f'JOIN {join_request[0]} ON item.{join_request[1]} = {join_request[0]}.id'   # form the join request
                     join_text += text + ' '     # and combine this request with others
             else:
-                join_text = f'JOIN {join[0]} ON item.{join[1]} = {join[0]}.id'
+                join_text = f'JOIN {join[0][0]} ON item.{join[0][1]} = {join[0][0]}.id'
         else:
             join_text = ''
 
-        self._cursor.execute(f"SELECT {what_to_take} FROM {from_to_take} {join_text}")
+        if order_by:
+            order_by = 'ORDER BY ' + order_by
+        else:
+            order_by = ''
+
+        distinct_values = {
+            True: 'DISTINCT',
+            False: ''
+        }
+        distinct = distinct_values[distinct]
+
+        sort_from_values = {
+            True: 'DESC',
+            False: 'ASC'
+        }
+
+        if join:
+            sort_from = ''
+        else:
+            sort_from = sort_from_values[desc]
+
+        where_text = self.__generate_where_text(where)
+
+        self._cursor.execute(
+            f"SELECT {distinct} {what_to_take} FROM {from_to_take} {order_by} {sort_from} {join_text} {where_text}"
+        )
 
         if fetch_one:
             return self._cursor.fetchone()
@@ -85,11 +108,35 @@ class PsqlRequests:
 
         return finally_text[:-2]
 
+    def __generate_where_text(self, where_request):
+        if not where_request:
+            return ''
+
+        where_text = 'WHERE '
+        for element in where_request[1]:
+            where_text += f'{where_request[0]} = {element}'
+
+            if element == where_request[1][-1]: break
+            where_text += ' OR '
+
+        return where_text
+
     def insert(self, table: str, rows: list, what_to_insert: list):
         rows = ', '.join(rows)
         what_to_insert = ', '.join(what_to_insert)
 
         self._cursor.execute(f"INSERT INTO {table} ({rows}) VALUES ({what_to_insert});")
+
+    def execute(self, command: str):
+        self._cursor.execute(command)
+
+        return self._cursor.fetchall()
+
+    def special_select(self, column, table):
+        column = 'LOWER(' + column + ')'
+        self._cursor.execute(f"SELECT {table}.id, {column} FROM {table}")
+
+        return self._cursor.fetchall()
 
     def close(self):
         self._cursor.close()

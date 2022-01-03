@@ -27,25 +27,15 @@
 # with open('item_photo.txt', 'w') as f:
 #     f.write(str(photo))
 
-import sqlrequests
-names = ['Amy', 'Clara', 'Vika', 'Yan']
+import sqlrequests as sql
+
+a = sql.PsqlRequests()
+
+b = a.select(from_to_take='item', what_to_take=['item.*', 'writer.full_name', 'item_photo.path'],
+         select_exceptions=['item.writer_id', 'item.photo_id'], join=[['writer', 'writer_id'],
+                                                                      ['item_photo', 'photo_id']],
+             where=['item.id', [1, 2, 19]])
 
 
-# class SpamPas:
-#     def __init__(self, names :list = None):
-#         self._name = names
-#
-#     def create(self):
-#         self._hellos = []
-#
-#         for i in self._name:
-#             a = Pas(i)
-#             self._hellos.append(a)
 
-
-a = sqlrequests.PsqlRequests()
-b = a.select('item')
-
-
-for i in range(20, 0, -1):
-    print(i)
+print(b)

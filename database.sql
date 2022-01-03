@@ -28,6 +28,7 @@ INSERT INTO item (title, genre, issue_year, price, rating, writer_id, photo_id) 
 INSERT INTO item (title, genre, issue_year, price, rating, writer_id, photo_id) VALUES ('Письма незнакомке ', 'письма', 2015, 11.5, 4.4, 14, 15);
 INSERT INTO item (title, genre, issue_year, price, rating, writer_id, photo_id) VALUES ('Человек, который принял жену за шляпу', 'нейропсихология', 2019, 12.99, 4.8, 15, 19);
 INSERT INTO item (id, title, genre, issue_year, price, rating, writer_id, photo_id) VALUES (19, 'Виктория. Пан', 'роман', 2021, 13.00, 5.0, 16, 20);
+INSERT INTO item (title, genre, issue_year, price, rating, writer_id, photo_id) VALUES ('Уличный кот по имени Боб', 'история из жизни', 2017, 9.99, 4.5, 17, 21);
 
 
 INSERT INTO writer (full_name) VALUES ('Джейн Остен');
