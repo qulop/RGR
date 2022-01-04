@@ -3,6 +3,7 @@ import PIL.ImageTk
 import tkinter.font
 import tkinter.ttk as ttk
 from tkinter import *
+from typing import Union
 import sqlrequests
 
 root = Tk()
@@ -61,10 +62,55 @@ def center_by(widget, center_coordinate: str, master=None, center_in_area: list 
     return center[center_coordinate]
 
 
-def place_widget_n_pxls_from_another(master, parent_widget, space: int, parent_x: int) -> int:
+def get_coordinates_indent(master, parent, space: int, parent_coords: list,
+                                     orientation: str = 'x') -> Union[int, list]:
     master.update()
-    widget_width = parent_widget.winfo_width()
-    return parent_x + widget_width + space
+    widget_width = parent.winfo_width()
+    widget_height = parent.winfo_height()
+
+    if orientation == 'xy':
+        return [parent_coords[0] + widget_width + space, parent_coords[1] + widget_height + space]
+    elif orientation == 'y':
+        return parent_coords[1] + widget_height + space
+    return parent_coords[0] + widget_width + space
+
+
+def place_windent(wid, push_off_from, master, indx=None, indy=None, x=None, y=None):
+    master.update()
+
+    if isinstance(push_off_from, list) and len(push_off_from) > 1:
+        print('here')
+        parx1 = push_off_from[0].winfo_x()
+        pary2 = push_off_from[1].winfo_y()
+
+        width = push_off_from[0].winfo_width()
+        height = push_off_from[1].winfo_height()
+        print(parx1)
+
+        wid.place(x=parx1 + indx + width, y=pary2 + indy + height)
+        return
+
+    parx = push_off_from.winfo_x()
+    pary = push_off_from.winfo_y()
+
+    width = push_off_from.winfo_width()
+    height = push_off_from.winfo_height()
+
+    if x:
+        wid.place(x=x, y=pary + indy + height)
+    elif y:
+        wid.place(x=parx + indx + width, y=y)
+    else:
+        wid.place(x=parx + indx+width, y=pary + indy+height)
+
+
+def resize_photo(path, size: tuple = None) -> PhotoImage:
+    img = PIL.Image.open(path)
+    if size:
+        img = img.resize(size)
+    img = PIL.ImageTk.PhotoImage(img)
+
+    return img
 
 
 class App:
@@ -86,12 +132,16 @@ class App:
 
         self._canvas.create_line(0, 160, 1200, 160, width=3)
 
-        label = Label(self._canvas, text='Вы можете продать нам свои книги', bg=main_bg,
-                      font=font.Font(size=15, underline=True))
-        x = center_by(label, 'x', self._canvas, correction=[60, 0])
-
-        self._add_new_book = Button(text='подробнее', bg=main_bg, activebackground=button_ab, bd=0,
-                              font=font.Font(size=14), command=AddEntryToDB)
+        # label = Label(self._canvas, text='Вы можете продать нам свои книги', bg=main_bg,
+        #               font=font.Font(size=15, underline=True))
+        # x = center_by(label, 'x', self._canvas, correction=[60, 0])
+        #
+        # self._add_new_book = Button(text='подробнее', bg=main_bg, activebackground=button_ab, bd=0,
+        #                       font=font.Font(size=14), command=AddEntryToDB)
+        label = Label(self._canvas, text='Вы не вошли в систему.', bg=main_bg, font=font.Font(size=15))
+        log_in = Button(self._canvas, text='Представитесь?', bg=main_bg, activebackground=button_ab,
+                        font=font.Font(size=14), bd=0, highlightthickness=0,
+                        command=lambda: self.open_win(self.__toggle_menu(), self.__add_account_window_to_toggle_menu()))
 
         self.__toggle_open = PIL.Image.open('content/icons/toggle_open.png')
         self.__toggle_open = self.__toggle_open.resize((60, 60))
@@ -106,10 +156,18 @@ class App:
 
         self._load_screen.destroy()
 
-        x = center_by(label, 'x', self._canvas, correction=[60, 0])
+        x = center_by(label, 'x', self._canvas, correction=[90, 0])
         label.place(x=x, y=70)
-        x = place_widget_n_pxls_from_another(self._canvas, label, space=10, parent_x=x)
-        self._add_new_book.place(x=x, y=66)
+        place_windent(log_in, label, self._canvas, indx=7, y=67)
+
+    @staticmethod
+    def open_win(self, *args):
+        try:
+            args[0].destroy()
+        except:
+            pass
+        for arg in args:
+            arg
 
     def __init_items_list(self):
         return CreateItemsGroup(master=self._canvas, all_items_on_page=all_items, bg=button_bg)
@@ -139,7 +197,10 @@ class App:
             'эми': 'эмма',
             'клара': 'клара и солнце',
             'вика': 'виктория. пан',
-            'виктория': 'виктория. пан'
+            'amy': 'эмма',
+            'clara': 'клара и солнце',
+            'vika': 'виктория. пан',
+            'viktoria': 'виктория. пан'
         }
         if request in replace_to_suns.keys():
             request = replace_to_suns[request]
@@ -167,7 +228,6 @@ class App:
                                         join=[['writer', 'writer_id'], ['item_photo', 'photo_id']],
                                         where=['item.id', coincidences])
 
-
         self._items.destroy_group()
         self._items = CreateItemsGroup(self._canvas, items=items, bg=button_bg)
 
@@ -182,33 +242,55 @@ class App:
 
         # self.label = Label(image=self.__loupe, bg=main_bg).place(relx=0.5, y=400)
 
-
-
     def __toggle_menu(self):
+        try:
+            self.__clear_toggle_menu()
+        except: pass
+
         self.__toggle_bg = '#808080'
         self.__toggle_canv = Canvas(self._master, width=400, height=self._master.winfo_height(),
                               bg=self.__toggle_bg, highlightthickness=0)
         self.__toggle_canv.place(x=800, y=0)
 
-        self.__toggle_close = PIL.Image.open('content/icons/toggle_close.png')
-        self.__toggle_close = self.__toggle_close.resize((50, 30))
-        self.__toggle_close = PIL.ImageTk.PhotoImage(self.__toggle_close)
+        size = font.Font(size=17)
+        Label(self.__toggle_canv, text='BC-AVC', font=size,
+              bg=self.__toggle_bg).place(anchor='n', relx=0.5, y=35)
+        self.__toggle_canv.create_line(0, 70, 400, 70, width=3)
 
-        self._close_btn = Button(self.__toggle_canv, image=self.__toggle_close, bg=self.__toggle_bg,
+        self.__close = resize_photo('content/icons/toggle_close.png', (50, 30))
+
+        self._close_btn = Button(self.__toggle_canv, image=self.__close, bg=self.__toggle_bg,
                                  activebackground=self.__toggle_bg, highlightthickness=0,
-                                 bd=0, relief=RIDGE, command=self.__toggle_canv.destroy)
+                                 bd=0, relief=RIDGE, command=self.__toggle_close)
         self._close_btn.place(x=340, y=10)
 
-        self.__generate_content_for_toggle_menu()
-        self.__add_content_to_toggle_menu()
+        self.extended_search = Button(self.__toggle_canv, text='>Расширенный поиск', bg=self.__toggle_bg,
+                                 activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
+                                    font=font.Font(size=15), command=self.__add_extended_search_to_toggle_menu)
+        self.extended_search.place(x=40, y=110)
 
-    def __generate_content_for_toggle_menu(self):
+        self.account = Button(self.__toggle_canv, text='>Аккаунт', bg=self.__toggle_bg,
+                                 activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
+                                    font=font.Font(size=15), command=self.__add_account_window_to_toggle_menu)
+        place_windent(self.account, self.extended_search, self.__toggle_canv, x=40, indy=15)
+
+    def __toggle_close(self):
+        self.__clear_toggle_menu()
+        self.__toggle_canv.destroy()
+
+    def __add_extended_search_to_toggle_menu(self):
+        self.__clear_toggle_menu()
+
         titles = {
             0: 'Автор:',
             1: 'Год издания:',
             2: 'Жанр:',
             3: 'Цена:'
         }
+
+        back = Button(self.__toggle_canv, text='назад', bg=button_bg, activebackground=button_ab, bd=0,
+                      command=self.__toggle_menu)
+        back.place(relx=0.8, y=6)
 
         self.__titles_on_toggle = []
         for i in range(4):
@@ -264,21 +346,12 @@ class App:
 
             self.__comboboxes.append(template)
 
-        #     def ivent_getter(self, event):
-        #         if (event.x >= self._x and event.x <= (self._x + self._searching_area.winfo_width())) and \
-        #         (event.y >= self._y and event.y <= (self._y + self._searching_area.winfo_height())):
-        #             self._searching_area.delete(first=0, last=END)
-        #         print(f'X: {event.x}; Y: {event.y}')
-        #         print(self._x, (self._x + self._searching_area.winfo_width()))
-        #         print(self._y, (self._y + self._searching_area.winfo_height()))
-
-    def __add_content_to_toggle_menu(self):
         Label(self.__toggle_canv, text='Расширенный поиск', font=font.Font(size=17),
               bg=self.__toggle_bg).place(anchor='n', relx=0.5, y=35)
         self.__toggle_canv.create_line(0, 70, 400, 70, width=3)
         checkbtns_lists = [self.__writer_checkbtns, self.__issue_year_checkbtns, self.__genre_checkbtns]
 
-        y = 80 # 115
+        y = 80  # 115
         for i in range(3):
             self.__titles_on_toggle[i].place(x=30, y=y)
             y += 35
@@ -301,6 +374,91 @@ class App:
 
         # for title in self.__titles_on_toggle:
         #     title.place(x=30, y=y)
+
+    def __add_account_window_to_toggle_menu(self):
+
+        # SELECT EXISTS(SELECT * FROM users WHERE users.login = 'amy' AND users.password = 'amy');
+        self.__clear_toggle_menu()
+
+        size = font.Font(size=17)
+        Label(self.__toggle_canv, text='Аккаунт', font=size,
+              bg=self.__toggle_bg).place(anchor='n', relx=0.5, y=35)
+        self.__toggle_canv.create_line(0, 70, 400, 70, width=3)
+
+        titles = {
+            0: 'Логин:',
+            1: 'Пароль:'
+        }
+
+        back = Button(self.__toggle_canv, text='назад', bg=button_bg, activebackground=button_ab, bd=0,
+                      command=self.__toggle_menu)
+        back.place(relx=0.8, y=10)
+
+        self.__labels_list = []
+        self.__authorization_lines = []
+        self.__registration_lines = []
+
+        y = 110
+        for i in range(2):
+            title = Label(self.__toggle_canv, text=titles[i], font=size, bg=self.__toggle_bg)
+            title.place(x=30, y=y)
+            self.__labels_list.append(title)
+
+            self.__toggle_canv.create_line(0, y+35, 400, y+35)
+            y += 50
+        root.update()
+
+        self._login = Entry(self.__toggle_canv, bg=button_bg, highlightthickness=0, bd=0)
+        place_windent(self._login, self.__labels_list[0], self.__toggle_canv, indx=10, y=118)
+
+        self._password = Entry(self.__toggle_canv, bg=button_bg, highlightthickness=0, bd=0, show="*")
+        place_windent(self._password, self.__labels_list[1], self.__toggle_canv, indx=10, y=168)
+
+        # self._reg_btn = Button(self.__toggle_canv, text='регистация', bg=button_bg, activebackground=button_ab, bd=0,
+        #                        highlightthickness=0, font=font.Font(size=13))
+        # place_windent(self._reg_btn, labels_list[1], self.__toggle_canv, indy=20, x=30)
+
+        self._log_in_btn = Button(self.__toggle_canv, text='войти', bg=button_bg, activebackground=button_ab, bd=0,
+                               highlightthickness=0, font=font.Font(size=13), command=self.__log_in)
+        place_windent(self._log_in_btn, self.__labels_list[1], self.__toggle_canv, indy=20, x=300)
+
+        self.__response_files = Label(self.__toggle_canv, text='', bg=self.__toggle_bg)
+        place_windent(self.__response_files, self.__labels_list[1], self.__toggle_canv, x=80, indy=23)
+
+    def __log_in(self):
+        login = self._login.get()
+        password = self._password.get()
+
+        if login and not password:
+            pass
+        if password and not login:
+            pass
+
+        self.__success = resize_photo('content/icons/verify_success.png', (30, 40))
+        self.__failed = resize_photo('content/icons/verify_failed.png', (30, 40))
+
+        icons = {
+            True: self.__success,
+            False: self.__failed
+        }
+
+        verify = postgres_cursor.execute(
+            f"SELECT EXISTS(SELECT * FROM users WHERE users.login = '{login}' AND users.password = '{password}');")[0][0]
+        icon = Label(self.__toggle_canv, image=icons[verify], bg=self.__toggle_bg)
+        place_windent(icon, self.__labels_list[1], self.__toggle_canv, x=30, indy=15)
+
+        if not verify:
+            self.__response_files.config(text='Неверный логин/пароль.', fg='#e64061', font=font.Font(size=11))
+        else:
+            access_lvl = postgres_cursor.execute(
+                f"SELECT access_level FROM users WHERE login = '{login}' AND password = '{password}';")[0][0]
+            self.__response_files.config(text=f'Вы вошли как "{login}".', fg='black', font=font.Font(size=11))
+
+    def __clear_toggle_menu(self):
+        children = self.__toggle_canv.winfo_children()
+
+        for child in children:
+            child.destroy()
 
     def __extended_search_onclick(self):
         writers_request = []
@@ -339,7 +497,7 @@ class AddEntryToDB:
                                          activebackground=button_ab, highlightthickness=0, bd=0,
                                          command=self.__add_info_to_database)
 
-        x = place_widget_n_pxls_from_another(self._win, label, space=15, parent_x=20)
+        x = get_coordinates_indent(self._win, label, space=15, parent_coords=[20, 0], orientation='x')
         self.__send_application.place(x=x, y=356)
 
     def __create_titles_fields(self):
@@ -401,7 +559,7 @@ class ItemButton:
         self.__background = bg
         self.__active_bg = active_bg
 
-        self._title = item[1]
+        self.title = item[1]
         self._writer = item[6]
         self._price = str(item[3]) + ' руб.'
         self._genre = item[4]
@@ -520,7 +678,7 @@ class ItemButton:
                 'price increment': 25
             }
         }
-        if len(self._title) > 20:
+        if len(self.title) > 20:
             title_size = 'too long title'
         else:
             title_size = 'normal title length'
@@ -531,15 +689,15 @@ class ItemButton:
         self.__image_label = Label(self.__button_frame, image=self._image, bg=self.__background)
         self.__image_label.place(x=x, y=10)
 
-        if len(self._title) > 20:
-            self.__title_label, y_coordinates = self.__placing_too_long_title(self._title)
+        if len(self.title) > 20:
+            self.__title_label, y_coordinates = self.__placing_too_long_title(self.title)
             for i in range(2):
                 self.__title_label[i].place(x=x, y=y_coordinates[i])
                 if i == 1:
                     self.__title_label[i].place(x=16, y=y_coordinates[i])
 
         else:
-            self.__title_label = Label(self.__button_frame, text=self._title, font=title_font, bg=self.__title_bg)
+            self.__title_label = Label(self.__button_frame, text=self.title, font=title_font, bg=self.__title_bg)
             self.__title_label.place(x=x, y=indent_by_y)
 
         indent_by_y += y_indent_increment[title_size]['writer increment']
@@ -553,6 +711,13 @@ class ItemButton:
 
         self.__price_label = Label(self.__button_frame, font=other_text_font, text=self._price, bg=self.__background)
         self.__price_label.place(x=x, y=indent_by_y)
+
+        self.__buy_button = Button(self.__button_frame, text='купить', bg=button_bg, activebackground=button_ab, bd=0,
+                                   command=self.__book_purchase)
+        self.__buy_button.place(x=210, y=10)
+
+    def __book_purchase(self):
+        pass
 
     def destroy(self):
         self.__button_frame.destroy()
@@ -575,7 +740,10 @@ class CreateItemsGroup:
 
         self.__buttons_group = []
         for i in range(len(self._items)):
-            button = self.__create_button(self._items[i])
+            if i == 2:
+                button = self.__create_button(self._items[i], i)
+            else:
+                button = self.__create_button(self._items[i])
             self.__buttons_group.append(button)
 
         for i in range(len(self.__buttons_group)):
@@ -588,14 +756,17 @@ class CreateItemsGroup:
             if item[0] == 1 or item[0] == 2 or item[0] == 19:
                 self._suns.append(item)
 
-    def __create_button(self, item) -> ItemButton:
+    def __create_button(self, item, easter_egg: int = None) -> ItemButton:
         if self.__x == 1200:
             self.__x = 0
             self.__y += 340
 
-        button = ItemButton(master=self._master, item=item, x=self.__x, y=self.__y, bg=self.__bg,
+        if easter_egg:
+            button = ItemButton(master=self._master, item=self._items[18], x=self.__x, y=self.__y, bg=self.__bg,
                             active_bg=self._active_bg)
-
+        else:
+            button = ItemButton(master=self._master, item=item, x=self.__x, y=self.__y, bg=self.__bg,
+                            active_bg=self._active_bg)
         self.__x += 300
 
         return button

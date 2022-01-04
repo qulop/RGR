@@ -27,15 +27,45 @@
 # with open('item_photo.txt', 'w') as f:
 #     f.write(str(photo))
 
-import sqlrequests as sql
+from tkinter import *
+from tkinter.font import Font
 
-a = sql.PsqlRequests()
+def anime():
+    global y, x, font_start, a
+    a.config(font=font_start)
+    y += 1
+    x -= 1
+    a.place(x=x, y=y)
+    if y != 60:
+        font_start['size'] += 2
+        root.after(1, anime)
 
-b = a.select(from_to_take='item', what_to_take=['item.*', 'writer.full_name', 'item_photo.path'],
-         select_exceptions=['item.writer_id', 'item.photo_id'], join=[['writer', 'writer_id'],
-                                                                      ['item_photo', 'photo_id']],
-             where=['item.id', [1, 2, 19]])
+def down():
+    global y, x, font_start
+    a.config(font=font_start)
+    y -= 1
+    x += 1
+    a.place(x=x, y=y)
+    if y != 50:
+        font_start['size'] -= 2
+        root.after(1, anime)
 
 
+def main():
+    a.place(x=x, y=y)
+    anime()
+    # down()
 
-print(b)
+root = Tk()
+root.config(width=600, height=600)
+font_start = Font(size=1)
+x = 50
+y = 50
+a = Label(root, text='Amy!', font=font_start)
+
+root.after(1000, main)
+a.destroy()
+
+
+root.mainloop()
+

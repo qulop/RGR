@@ -8,6 +8,14 @@ CREATE TABLE item (
     rating numeric(2, 1)
 );
 
+CREATE TABLE users (
+    id SERIAL NOT NULL PRIMARY KEY,
+    login VARCHAR(100) NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    access_level VARCHAR(5) NOT NULL
+);
+
+INSERT INTO users (login, password, access_level) VALUES ('me', 'me', 'admin');
 
 INSERT INTO item (title, genre, issue_year, price, rating, writer_id, photo_id) VALUES ('Эмма', 'роман', 2018, 13.00, 5.0, 2, 4);
 INSERT INTO item (title, genre, issue_year, price, rating, writer_id, photo_id) VALUES ('Клара и солнце', 'антиутопия', 2021, 13.00, 5.0, 3, 16);
