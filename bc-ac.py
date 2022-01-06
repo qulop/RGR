@@ -5,6 +5,7 @@ import tkinter.ttk as ttk
 from tkinter import *
 from typing import Union
 import sqlrequests
+import datetime
 
 root = Tk()
 
@@ -34,8 +35,8 @@ root.config(bg=main_bg)
 postgres_cursor = sqlrequests.PsqlRequests()
 all_items = postgres_cursor.select(from_to_take='item', what_to_take=['item.*', 'writer.full_name', 'item_photo.path'],
                                    join=[['writer', 'writer_id'], ['item_photo', 'photo_id']],
-                                   select_exceptions=['item.writer_id', 'item.photo_id'])
-
+                                   select_exceptions=['item.writer_id', 'item.photo_id', 'item.receipt_date',
+                                                      'item.total_sold'])
 
 def center_by(widget, center_coordinate: str, master=None, center_in_area: list = None, correction: list = [0, 0]):
     widget.place(x=0, y=0)
@@ -132,6 +133,9 @@ class App:
 
         self._canvas.create_line(0, 160, 1200, 160, width=3)
 
+        self.__access_lvl = 'user'
+        self.__analytic_mod_status = 'off'
+
         # label = Label(self._canvas, text='Вы можете продать нам свои книги', bg=main_bg,
         #               font=font.Font(size=15, underline=True))
         # x = center_by(label, 'x', self._canvas, correction=[60, 0])
@@ -152,7 +156,8 @@ class App:
         self._toggle_open_btn.place(x=1130, y=10)
 
         self.__add_searchbar(area_width=85)
-        self._items = self.__init_items_list()
+        self._items = None
+        self._items = self.__init_user_catalog()
 
         self._load_screen.destroy()
 
@@ -161,7 +166,7 @@ class App:
         place_windent(log_in, label, self._canvas, indx=7, y=67)
 
     @staticmethod
-    def open_win(self, *args):
+    def open_win(*args):
         try:
             args[0].destroy()
         except:
@@ -169,7 +174,11 @@ class App:
         for arg in args:
             arg
 
-    def __init_items_list(self):
+    def __init_user_catalog(self):
+        if self._items:
+            self._items.destroy_group()
+        self.__analytic_mod_status = 'off'
+
         return CreateItemsGroup(master=self._canvas, all_items_on_page=all_items, bg=button_bg)
 
     def __add_searchbar(self, area_width):
@@ -210,7 +219,9 @@ class App:
 
         coincidences = []
 
-        server_answer = postgres_cursor.execute('SELECT item.id, LOWER(item.title), LOWER(item.genre), LOWER(writer.full_name) FROM item JOIN writer ON item.writer_id = writer.id;')
+        server_answer = postgres_cursor.execute(
+            'SELECT item.id, LOWER(item.title), LOWER(item.genre), LOWER(writer.full_name) FROM item JOIN writer ON item.writer_id = writer.id;'
+        )
 
         for elemnt in server_answer:
             for i in range(1, 4):
@@ -224,7 +235,8 @@ class App:
 
         items = postgres_cursor.select(from_to_take='item',
                                         what_to_take=['item.*', 'writer.full_name', 'item_photo.path'],
-                                        select_exceptions=['item.writer_id', 'item.photo_id'],
+                                        select_exceptions=['item.writer_id', 'item.photo_id', 'item.receipt_date',
+                                                           'item.total_sold'],
                                         join=[['writer', 'writer_id'], ['item_photo', 'photo_id']],
                                         where=['item.id', coincidences])
 
@@ -246,6 +258,11 @@ class App:
         try:
             self.__clear_toggle_menu()
         except: pass
+        # self._to_destroy = []
+
+        try:
+            self.__toggle_canv.destroy()
+        except: pass
 
         self.__toggle_bg = '#808080'
         self.__toggle_canv = Canvas(self._master, width=400, height=self._master.winfo_height(),
@@ -254,29 +271,48 @@ class App:
 
         size = font.Font(size=17)
         Label(self.__toggle_canv, text='BC-AVC', font=size,
-              bg=self.__toggle_bg).place(anchor='n', relx=0.5, y=35)
+                  bg=self.__toggle_bg).place(anchor='n', relx=0.5, y=35)
         self.__toggle_canv.create_line(0, 70, 400, 70, width=3)
 
         self.__close = resize_photo('content/icons/toggle_close.png', (50, 30))
 
         self._close_btn = Button(self.__toggle_canv, image=self.__close, bg=self.__toggle_bg,
-                                 activebackground=self.__toggle_bg, highlightthickness=0,
-                                 bd=0, relief=RIDGE, command=self.__toggle_close)
+                                     activebackground=self.__toggle_bg, highlightthickness=0,
+                                     bd=0, relief=RIDGE, command=self.__toggle_close)
         self._close_btn.place(x=340, y=10)
 
         self.extended_search = Button(self.__toggle_canv, text='>Расширенный поиск', bg=self.__toggle_bg,
-                                 activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
-                                    font=font.Font(size=15), command=self.__add_extended_search_to_toggle_menu)
+                                     activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
+                                        font=font.Font(size=15), command=self.__add_extended_search_to_toggle_menu)
         self.extended_search.place(x=40, y=110)
 
         self.account = Button(self.__toggle_canv, text='>Аккаунт', bg=self.__toggle_bg,
-                                 activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
-                                    font=font.Font(size=15), command=self.__add_account_window_to_toggle_menu)
+                                     activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
+                                        font=font.Font(size=15), command=self.__add_account_window_to_toggle_menu)
         place_windent(self.account, self.extended_search, self.__toggle_canv, x=40, indy=15)
 
+        admin_mod_is = {
+            'on': Button(self.__toggle_canv, text='>Выключить аналитический\nрежим', bg=self.__toggle_bg,
+                                    activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
+                                    font=font.Font(size=15), command=self.__init_user_catalog),
+            'off': Button(self.__toggle_canv, text='>Включить аналитический\nрежим', bg=self.__toggle_bg,
+                                    activebackground=self.__toggle_bg, highlightthickness=0, bd=0,
+                                    font=font.Font(size=15), command=self.__init_analytic_mod)
+            }
+
+        self.admin = admin_mod_is[self.__analytic_mod_status]
+        if self.__access_lvl == 'admin':
+            place_windent(self.admin, self.account, self.__toggle_canv, x=40, indy=15)
+
     def __toggle_close(self):
-        self.__clear_toggle_menu()
-        self.__toggle_canv.destroy()
+        self.__toggle_canv.delete("all")
+        self.__toggle_canv.place_forget()
+
+    def __clear_toggle_menu(self):
+        self.__toggle_canv.delete("all")
+        children = self.__toggle_canv.winfo_children()
+        for child in children:
+            child.destroy()
 
     def __add_extended_search_to_toggle_menu(self):
         self.__clear_toggle_menu()
@@ -425,6 +461,13 @@ class App:
         self.__response_files = Label(self.__toggle_canv, text='', bg=self.__toggle_bg)
         place_windent(self.__response_files, self.__labels_list[1], self.__toggle_canv, x=80, indy=23)
 
+    def __init_analytic_mod(self):
+        self._items.destroy_group()
+
+        self.__analytic_mod_status = 'on'
+        self._items = CreateItemsGroup(master=self._canvas, all_items_on_page=all_items, bg=button_bg,
+                                       button_type='admin')
+
     def __log_in(self):
         login = self._login.get()
         password = self._password.get()
@@ -452,21 +495,14 @@ class App:
         else:
             access_lvl = postgres_cursor.execute(
                 f"SELECT access_level FROM users WHERE login = '{login}' AND password = '{password}';")[0][0]
-            self.__response_files.config(text=f'Вы вошли как "{login}".', fg='black', font=font.Font(size=11))
 
-    def __clear_toggle_menu(self):
-        children = self.__toggle_canv.winfo_children()
+            answer = {
+                'admin': f'Вы вошли как "{login}"\n(права администратора).',
+                'user': f'Вы вошли как "{login}".'
+            }
+            self.__response_files.config(text=answer[access_lvl], fg='black', font=font.Font(size=11))
 
-        for child in children:
-            child.destroy()
-
-    def __extended_search_onclick(self):
-        writers_request = []
-        issue_years_request = []
-        genres_request = []
-
-        for btn in self.__writer_checkbtns:
-            print(btn['variable'].get())
+            self.__access_lvl = access_lvl
 
 
 class AddEntryToDB:
@@ -552,12 +588,12 @@ class AddEntryToDB:
 class ItemButton:
     def __init__(self, master, item, x: int, y: int, height: int = 340, width: int = 300, bg: str = 'white',
                  active_bg: str = '#f2f2f2', cursor=None):
-        self.__x = x
-        self.__y = y
+        self._x = x
+        self._y = y
         self.__height = height
         self.__width = width
-        self.__background = bg
-        self.__active_bg = active_bg
+        self._background = bg
+        self._active_bg = active_bg
 
         self.title = item[1]
         self._writer = item[6]
@@ -567,9 +603,9 @@ class ItemButton:
         self._issue_year = item[2]
         path = item[-1]
         self._image = self.__image_resize(path)
-        self.__title_bg = bg
+        self._title_bg = bg
 
-        self.__button_frame = Canvas(master, width=self.__width, height=self.__height, bg=self.__background,
+        self._button_frame = Canvas(master, width=self.__width, height=self.__height, bg=self._background,
                                      highlightthickness=0)
         # self.__draw_item_frame()
         # self.__button_frame.place(x=self.__x, y=self.__y)
@@ -594,10 +630,10 @@ class ItemButton:
 
         return image
 
-    def __draw_item_frame(self):
-        self.__button_frame.create_line(0, 0, 300, 0, width=3)
-        self.__button_frame.create_line(0, 338, 300, 338, width=3)
-        self.__button_frame.create_line(0, 0, 0, self.__height)
+    def _draw_item_frame(self):
+        self._button_frame.create_line(0, 0, 300, 0, width=3)
+        self._button_frame.create_line(0, 338, 300, 338, width=3)
+        self._button_frame.create_line(0, 0, 0, self.__height)
 
     def __text_wrapping(self, text):
         wrap_index = 0
@@ -611,7 +647,7 @@ class ItemButton:
 
         return ''.join(text)
 
-    def __placing_too_long_title(self, title):
+    def _placing_too_long_title(self, title):
         wrap_index = 0
 
         upper_iteration_index = len(title)
@@ -633,8 +669,8 @@ class ItemButton:
 
         font_ = font.Font(size=15, family='Times', slant='roman', weight='bold')
 
-        top_title = Label(self.__button_frame, text=title1, font=font_, bg=self.__title_bg)
-        bottom_title = Label(self.__button_frame, text=title2, font=font_, bg=self.__title_bg)
+        top_title = Label(self._button_frame, text=title1, font=font_, bg=self._title_bg)
+        bottom_title = Label(self._button_frame, text=title2, font=font_, bg=self._title_bg)
 
         y1 = 235
         y2 = 260
@@ -683,53 +719,122 @@ class ItemButton:
         else:
             title_size = 'normal title length'
 
-        self.__draw_item_frame()
-        self.__button_frame.place(x=self.__x, y=self.__y)
+        self._draw_item_frame()
+        self._button_frame.place(x=self._x, y=self._y)
 
-        self.__image_label = Label(self.__button_frame, image=self._image, bg=self.__background)
+        self.__image_label = Label(self._button_frame, image=self._image, bg=self._background)
         self.__image_label.place(x=x, y=10)
 
         if len(self.title) > 20:
-            self.__title_label, y_coordinates = self.__placing_too_long_title(self.title)
+            self.__title_label, y_coordinates = self._placing_too_long_title(self.title)
             for i in range(2):
                 self.__title_label[i].place(x=x, y=y_coordinates[i])
                 if i == 1:
                     self.__title_label[i].place(x=16, y=y_coordinates[i])
 
         else:
-            self.__title_label = Label(self.__button_frame, text=self.title, font=title_font, bg=self.__title_bg)
+            self.__title_label = Label(self._button_frame, text=self.title, font=title_font, bg=self._title_bg)
             self.__title_label.place(x=x, y=indent_by_y)
 
         indent_by_y += y_indent_increment[title_size]['writer increment']
 
+        print(self._writer, self._issue_year)
         writer_and_issue_year = self._writer + ', ' + str(self._issue_year)
-        self.__writer_isuue_year_label = Label(self.__button_frame, font=other_text_font, text=writer_and_issue_year,
-                                    bg=self.__background, fg='#262626')
+        self.__writer_isuue_year_label = Label(self._button_frame, font=other_text_font,
+                                               text=writer_and_issue_year, bg=self._background, fg='#262626')
         self.__writer_isuue_year_label.place(x=x, y=indent_by_y)
 
         indent_by_y += y_indent_increment[title_size]['price increment']
 
-        self.__price_label = Label(self.__button_frame, font=other_text_font, text=self._price, bg=self.__background)
+        self.__price_label = Label(self._button_frame, font=other_text_font, text=self._price,
+                                   bg=self._background)
         self.__price_label.place(x=x, y=indent_by_y)
 
-        self.__buy_button = Button(self.__button_frame, text='купить', bg=button_bg, activebackground=button_ab, bd=0,
+        self.__buy_button = Button(self._button_frame, text='купить', bg=button_bg, activebackground=button_ab, bd=0,
                                    command=self.__book_purchase)
         self.__buy_button.place(x=210, y=10)
 
     def __book_purchase(self):
-        pass
+        current_sold = postgres_cursor.execute(f"SELECT total_sold FROM item WHERE title = '{self.title}';")[0][0]
+        print(current_sold)
+        postgres_cursor.execute(f"UPDATE item SET total_sold = {current_sold+1} WHERE title = '{self.title}';")
+        print(current_sold)
 
     def destroy(self):
-        self.__button_frame.destroy()
+        self._button_frame.destroy()
+
+
+class AnalyticButton(ItemButton):
+    def __init__(self, master, item, x: int, y: int, height: int = 340, width: int = 300, bg: str = 'white',
+                 active_bg: str = '#f2f2f2'):
+        super().__init__(master, item, x, y, height, width, bg, active_bg)
+        self.__analytic_data = postgres_cursor.execute(f"SELECT receipt_date, total_sold FROM item WHERE id = {item[0]}")[0]
+
+        self._receipt_date = self.__analytic_data[0]
+        self._total_sold = self.__analytic_data[1]
+
+
+    def place_button(self):
+        title_font = font.Font(size=20, family='Times', slant='roman', weight='bold')
+        other_text_font = font.Font(size=13, slant='roman')
+        indent_by_y = 240
+        x = 20
+
+        y_indent_increment = {
+            'too long title': {
+                'writer increment': 43,
+                'price increment': 27
+            },
+            'normal title length': {
+                'writer increment': 30,
+                'price increment': 25
+            }
+        }
+        if len(self.title) > 20:
+            title_size = 'too long title'
+        else:
+            title_size = 'normal title length'
+        self._draw_item_frame()
+        self._button_frame.place(x=self._x, y=self._y)
+
+        self.__image_label = Label(self._button_frame, image=self._image, bg=self._background)
+        self.__image_label.place(x=x, y=10)
+
+        if len(self.title) > 20:
+            self.__title_label, y_coordinates = self._placing_too_long_title(self.title)
+            for i in range(2):
+                self.__title_label[i].place(x=x, y=y_coordinates[i])
+                if i == 1:
+                    self.__title_label[i].place(x=16, y=y_coordinates[i])
+
+        else:
+            self.__title_label = Label(self._button_frame, text=self.title, font=title_font, bg=self._title_bg)
+            self.__title_label.place(x=x, y=indent_by_y)
+
+        indent_by_y += y_indent_increment[title_size]['writer increment']
+
+        statistic = Label(self._button_frame, text=f'С {self._receipt_date} продано {self._total_sold}шт.',
+                          bg=button_bg, font=other_text_font)
+        place_windent(statistic, self.__image_label, self._button_frame, indy=60, x=x)
+
+        price = Label(self._button_frame, text=self._price, bg=button_bg, font=other_text_font)
+        place_windent(price, self.__image_label, self._button_frame, indx=15, y=10)
 
 
 class CreateItemsGroup:
     def __init__(self,  master, all_items_on_page: tuple = None, bg: str = 'white',
-                 active_bg: str = '#f2f2f2', items: tuple = None):
+                 active_bg: str = '#f2f2f2', items: tuple = None, button_type: str = 'user'):
         if items:
             self._items = items
         else:
-            self._items = all_items_on_page
+            if button_type == 'user':
+                self._items = all_items_on_page
+            else:
+                self._items = postgres_cursor.select(from_to_take='item', what_to_take=['item.*', 'writer.full_name', 'item_photo.path'],
+                                   join=[['writer', 'writer_id'], ['item_photo', 'photo_id']],
+                                   select_exceptions=['item.writer_id', 'item.photo_id', 'item.receipt_date',
+                                                      'item.total_sold'], order_by='item.total_sold')
+        print(self._items)
 
         self._master = master
         self.__bg = bg
@@ -737,17 +842,10 @@ class CreateItemsGroup:
 
         self.__x = 0
         self.__y = 160
+        self.__button_type = button_type
 
         self.__buttons_group = []
-        for i in range(len(self._items)):
-            if i == 2:
-                button = self.__create_button(self._items[i], i)
-            else:
-                button = self.__create_button(self._items[i])
-            self.__buttons_group.append(button)
-
-        for i in range(len(self.__buttons_group)):
-            self.__buttons_group[i].place_button()
+        self.__create_group()
 
     def __get_easter_eggs(self):
         self._suns = []
@@ -756,20 +854,28 @@ class CreateItemsGroup:
             if item[0] == 1 or item[0] == 2 or item[0] == 19:
                 self._suns.append(item)
 
-    def __create_button(self, item, easter_egg: int = None) -> ItemButton:
+    def __create_button(self, item) -> ItemButton:
         if self.__x == 1200:
             self.__x = 0
             self.__y += 340
 
-        if easter_egg:
-            button = ItemButton(master=self._master, item=self._items[18], x=self.__x, y=self.__y, bg=self.__bg,
+        if self.__button_type == 'user':
+            button = ItemButton(master=self._master, item=item, x=self.__x, y=self.__y, bg=self.__bg,
                             active_bg=self._active_bg)
         else:
-            button = ItemButton(master=self._master, item=item, x=self.__x, y=self.__y, bg=self.__bg,
+            button = AnalyticButton(master=self._master, item=item, x=self.__x, y=self.__y, bg=self.__bg,
                             active_bg=self._active_bg)
         self.__x += 300
 
         return button
+
+    def __create_group(self):
+        for i in range(len(self._items)):
+            button = self.__create_button(self._items[i])
+            self.__buttons_group.append(button)
+
+        for i in range(len(self.__buttons_group)):
+            self.__buttons_group[i].place_button()
 
     def destroy_group(self):
         for i in range(len(self.__buttons_group)):
@@ -800,6 +906,11 @@ def add_line_to_database():
 
 
 app = App(root)
+# CreateItemsGroup(root, items=all_items, bg=button_bg, button_type='admin')
+# a = AnalyticButton(master=root, item=all_items[0], x=800, y=400)
+# a.place_button()
+# b = ItemButton(master=root, item=all_items[0], x=200, y=400)
+# b.place_button()
 
 root.bind('<Button-1>', get_cursor_cords)
 root.mainloop()

@@ -81,9 +81,10 @@ class PsqlRequests:
             sort_from = sort_from_values[desc]
 
         where_text = self.__generate_where_text(where)
-
+        print(f"SELECT {distinct} {what_to_take} FROM {from_to_take} {join_text} {where_text} {order_by} {sort_from}")
+        # print(f"SELECT {distinct} {what_to_take} FROM {from_to_take} {order_by} {sort_from} {join_text} {where_text}")
         self._cursor.execute(
-            f"SELECT {distinct} {what_to_take} FROM {from_to_take} {order_by} {sort_from} {join_text} {where_text}"
+            f"SELECT {distinct} {what_to_take} FROM {from_to_take} {join_text} {where_text} {order_by} {sort_from};"
         )
 
         if fetch_one:
@@ -100,9 +101,9 @@ class PsqlRequests:
 
         for column_name in columns_names:
             finally_text += f'{select_from}.{column_name}, '
-
         for exception in select_exceptions:
             exception = ', ' + exception
+            print(exception)
             if exception in finally_text:
                 finally_text = finally_text.replace(exception, '')
 

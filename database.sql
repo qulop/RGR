@@ -75,3 +75,7 @@ INSERT INTO item_photo (path) VALUES ('/home/qlop/PythonAll/RGR/content/item-pho
 INSERT INTO item_photo (path) VALUES ('/home/qlop/PythonAll/RGR/content/item-photo/west-front.png');
 INSERT INTO item_photo (path) VALUES ('/home/qlop/PythonAll/RGR/content/item-photo/wife-hat.png');
 INSERT INTO item_photo (path) VALUES ('/home/qlop/PythonAll/RGR/content/item-photo/vika.jpg');
+
+
+UPDATE item SET receipt_date = '2019-10-25' WHERE id = 0;
+INSERT INTO item (id, receipt_date) VALUES (0, 25.10.2019);
